@@ -36,7 +36,7 @@ async def search_defects(
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `query` | string | No | `""` | General search query for defect content |
-| `stream_id` | string | No | `""` | Filter by specific stream ID |
+| `stream_id` | string | No | `""` | Filter by the stream name returned by `list_streams` |
 | `checker` | string | No | `""` | Filter by checker name (e.g., "NULL_RETURNS") |
 | `severity` | string | No | `""` | Filter by severity (High, Medium, Low) |
 | `status` | string | No | `""` | Filter by status (New, Triaged, Fixed, etc.) |

@@ -5,7 +5,7 @@ from coverity_mcp_server.coverity_client import CoverityClient
 
 
 class DefectSearchTests(unittest.TestCase):
-    def test_file_path_uses_coverity_file_filter(self):
+    def test_search_filters_use_coverity_issue_search_schema(self):
         client = CoverityClient(
             "coverity.example.test",
             username="user",
@@ -24,7 +24,12 @@ class DefectSearchTests(unittest.TestCase):
 
         client._make_request = make_request
 
-        asyncio.run(client.get_defects(file_path="src/authentication"))
+        asyncio.run(
+            client.get_defects(
+                filters={"streamId": "Eddynet-CPP_qt6", "status": "New"},
+                file_path="zwidget/zwidget/messagedialogbase.cpp",
+            )
+        )
 
         self.assertEqual(request["method"], "POST")
         self.assertEqual(request["endpoint"], "/api/v2/issues/search")
@@ -34,15 +39,37 @@ class DefectSearchTests(unittest.TestCase):
             {
                 "filters": [
                     {
+                        "columnKey": "streams",
+                        "matchMode": "oneOrMoreMatch",
+                        "matchers": [
+                            {
+                                "class": "Stream",
+                                "name": "Eddynet-CPP_qt6",
+                                "type": "nameMatcher",
+                            }
+                        ],
+                    },
+                    {
+                        "columnKey": "status",
+                        "matchMode": "oneOrMoreMatch",
+                        "matchers": [{"key": "New", "type": "keyMatcher"}],
+                    },
+                    {
                         "columnKey": "file",
                         "matchMode": "subString",
                         "matchers": [
                             {
                                 "class": "String",
-                                "pattern": "src/authentication",
+                                "pattern": "zwidget/zwidget/messagedialogbase.cpp",
                             }
                         ],
+                    },
+                ],
+                "snapshotScope": {
+                    "show": {
+                        "scope": "last()",
+                        "includeOutdatedSnapshots": False,
                     }
-                ]
+                },
             },
         )

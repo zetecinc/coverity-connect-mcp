@@ -314,33 +314,63 @@ class CoverityClient:
         try:
             endpoint = '/api/v2/issues/search'
             params = {'rowCount': limit}
-            
-            if stream_id:
-                params['streamId'] = stream_id
+
             if query:
                 params['query'] = query
-                
-            # Add filters
-            if filters:
-                params.update(filters)
 
             method = 'GET'
             data = None
+            search_filters = []
+            stream_name = stream_id or (filters or {}).get('streamId', '')
+            if stream_name:
+                search_filters.append(
+                    {
+                        'columnKey': 'streams',
+                        'matchMode': 'oneOrMoreMatch',
+                        'matchers': [
+                            {
+                                'class': 'Stream',
+                                'name': stream_name,
+                                'type': 'nameMatcher',
+                            }
+                        ],
+                    }
+                )
+
+            status = (filters or {}).get('status', '')
+            if status:
+                search_filters.append(
+                    {
+                        'columnKey': 'status',
+                        'matchMode': 'oneOrMoreMatch',
+                        'matchers': [{'key': status, 'type': 'keyMatcher'}],
+                    }
+                )
+
             if file_path:
+                search_filters.append(
+                    {
+                        'columnKey': 'file',
+                        'matchMode': 'subString',
+                        'matchers': [
+                            {
+                                'class': 'String',
+                                'pattern': file_path,
+                            }
+                        ],
+                    }
+                )
+
+            if search_filters:
                 method = 'POST'
                 data = {
-                    'filters': [
-                        {
-                            'columnKey': 'file',
-                            'matchMode': 'subString',
-                            'matchers': [
-                                {
-                                    'class': 'String',
-                                    'pattern': file_path,
-                                }
-                            ],
+                    'filters': search_filters,
+                    'snapshotScope': {
+                        'show': {
+                            'scope': 'last()',
+                            'includeOutdatedSnapshots': False,
                         }
-                    ]
+                    },
                 }
 
             response = await self._make_request(
@@ -384,20 +414,7 @@ class CoverityClient:
             
         except Exception as e:
             logger.error(f"Failed to get defects: {e}")
-            # Return dummy data
-            return [
-                {
-                    'cid': 'dummy-123',
-                    'checkerName': 'TEST_CHECKER',
-                    'displayType': 'Test defect',
-                    'displayImpact': 'Low',
-                    'displayStatus': 'New',
-                    'displayFile': 'test.c',
-                    'displayFunction': 'test_function',
-                    'firstDetected': '2024-01-01T00:00:00Z',
-                    'streamId': stream_id or 'dummy-stream'
-                }
-            ]
+            raise
     
     async def get_defect_details(self, cid: str) -> Optional[Dict[str, Any]]:
         """
