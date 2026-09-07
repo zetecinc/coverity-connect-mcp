@@ -158,9 +158,6 @@ pyenv local 3.10.0
 # 接続テスト
 telnet your-coverity-server 8080
 
-# プロキシ設定確認
-export HTTP_PROXY=http://proxy:8080
-export HTTPS_PROXY=http://proxy:8080
 ```
 
 ### ヘルプの取得

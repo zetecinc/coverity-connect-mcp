@@ -33,7 +33,7 @@ Transform your Coverity workflow with natural language commands and automated an
 ### 🛠️ **Enterprise Ready**
 - **SOAP API Integration**: Full Coverity Connect Web Services support
 - **Authentication**: Secure auth-key based authentication
-- **Proxy Support**: Corporate network and proxy configuration
+- **Direct Connections**: Coverity requests never use a proxy
 - **Multi-Platform**: Windows, macOS, and Linux support
 - **Docker Ready**: Containerized deployment for enterprise environments
 
@@ -115,11 +115,6 @@ export COVERITY_SSL="True"
 # Optional - Local Workspace
 export COVERITY_BASE_DIR="/path/to/coverity/workspace"
 
-# Optional - Corporate Proxy (if needed)
-export PROXY_HOST="your-proxy-server.com"
-export PROXY_PORT="3128"
-export PROXY_USER="proxy_username"  # if authentication required
-export PROXY_PASS="proxy_password"  # if authentication required
 ```
 
 ### 2. Claude Desktop Integration
@@ -155,9 +150,6 @@ services:
       - COVAUTHUSER=${COVAUTHUSER}
       - COVAUTHKEY=${COVAUTHKEY}
       - COVERITY_HOST=${COVERITY_HOST}
-      # Optional proxy settings
-      - PROXY_HOST=${PROXY_HOST}
-      - PROXY_PORT=${PROXY_PORT}
     ports:
       - "8000:8000"
 ```
@@ -205,6 +197,7 @@ Show me the permissions and role assignments for user "developer1" and identify 
 |------|-------------|---------------|
 | `search_defects` | Advanced defect search with filtering | Find high-severity security vulnerabilities |
 | `get_defect_details` | Get detailed information about a specific defect | Analyze defect events and remediation steps |
+| `mark_defect_intentional` | Classify an issue as Intentional in one stream | Mark CID 12345 as intentional in main |
 | `list_projects` | List all accessible Coverity projects | Project inventory and access verification |
 | `list_streams` | Get streams for a specific project | Stream-based analysis planning |
 | `get_project_summary` | Get comprehensive project analysis | Executive project health reports |

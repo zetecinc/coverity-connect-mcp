@@ -8,7 +8,7 @@ This document provides comprehensive API documentation for the Coverity Connect 
 
 The Coverity Connect MCP Server implements the Model Context Protocol (MCP) specification and provides the following capabilities:
 
-- **Tools**: 5 available tools for Coverity operations
+- **Tools**: 9 available tools for Coverity operations
 - **Resources**: 2 available resources for configuration and data access
 - **Prompts**: Built-in prompts for common workflows
 
@@ -26,6 +26,7 @@ async def search_defects(
     checker: str = "",
     severity: str = "",
     status: str = "",
+    file_path: str = "",
     limit: int = 50
 ) -> List[Dict[str, Any]]
 ```
@@ -39,6 +40,7 @@ async def search_defects(
 | `checker` | string | No | `""` | Filter by checker name (e.g., "NULL_RETURNS") |
 | `severity` | string | No | `""` | Filter by severity (High, Medium, Low) |
 | `status` | string | No | `""` | Filter by status (New, Triaged, Fixed, etc.) |
+| `file_path` | string | No | `""` | Filter by a full file path or path fragment |
 | `limit` | integer | No | `50` | Maximum number of results to return |
 
 #### Response Format
@@ -68,6 +70,11 @@ Search for defects in the main stream
 **Filtered Search:**
 ```
 Find all high-severity NULL_RETURNS defects that are still New
+```
+
+**Path-Filtered Search:**
+```
+Find defects in the src/authentication directory
 ```
 
 **Advanced Search:**
@@ -115,7 +122,44 @@ async def get_defect_details(cid: str) -> Dict[str, Any]
 }
 ```
 
-### 3. list_projects
+### 3. mark_defect_intentional
+
+Set a Coverity issue's `Classification` triage attribute to `Intentional`.
+The stream is required so the update is limited to the intended occurrence
+when the same CID is present in multiple streams.
+
+#### Signature
+```python
+async def mark_defect_intentional(
+    cid: int, stream_name: str
+) -> Dict[str, Any]
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `cid` | integer | Yes | Coverity Issue Identifier (CID) to classify |
+| `stream_name` | string | Yes | Name of the stream containing the issue |
+
+#### Response Format
+```json
+{
+  "cid": 12345,
+  "stream_name": "main",
+  "classification": "Intentional",
+  "updated": true
+}
+```
+
+#### Usage Example
+```
+Mark CID 12345 as intentional in the main stream
+```
+
+The authenticated Coverity user must have permission to update defect triage.
+
+### 4. list_projects
 
 List all projects available in Coverity Connect.
 
@@ -141,7 +185,7 @@ None
 ]
 ```
 
-### 4. list_streams
+### 5. list_streams
 
 List streams, optionally filtered by project.
 
@@ -168,7 +212,7 @@ async def list_streams(project_id: str = "") -> List[Dict[str, Any]]
 ]
 ```
 
-### 5. get_project_summary
+### 6. get_project_summary
 
 Get comprehensive summary information for a project including defect statistics.
 

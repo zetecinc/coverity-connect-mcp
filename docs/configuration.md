@@ -160,9 +160,9 @@ TIMEOUT_SECONDS=60
 {
   "mcpServers": {
     "coverity-connect": {
-      "command": "python",
+      "command": "C:\\path\\to\\coverity-connect-mcp\\venv\\Scripts\\python.exe",
       "args": ["-m", "coverity_mcp_server"],
-      "cwd": "/path/to/coverity-connect-mcp",
+      "cwd": "C:\\path\\to\\coverity-connect-mcp",
       "env": {
         "COVERITY_HOST": "coverity.company.com",
         "COVERITY_PORT": "8080",
@@ -174,6 +174,11 @@ TIMEOUT_SECONDS=60
   }
 }
 ```
+
+On macOS or Linux, use the virtual environment interpreter at
+`/path/to/coverity-connect-mcp/venv/bin/python` instead. Do not use a bare
+`python` command because the MCP host can resolve it to an interpreter that
+does not contain the installed server package.
 
 ### Advanced Configuration
 ```json
@@ -284,9 +289,6 @@ export SSL_VERIFY=False
 # Test network connectivity
 telnet $COVERITY_HOST $COVERITY_PORT
 
-# Check proxy settings
-export HTTP_PROXY=http://proxy:8080
-export HTTPS_PROXY=http://proxy:8080
 ```
 
 ## 📚 Additional Resources

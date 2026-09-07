@@ -95,9 +95,9 @@ Add the following to your Claude Desktop configuration:
 {
   "mcpServers": {
     "coverity-connect": {
-      "command": "python",
+      "command": "C:\\path\\to\\coverity-connect-mcp\\venv\\Scripts\\python.exe",
       "args": ["-m", "coverity_mcp_server"],
-      "cwd": "/path/to/coverity-connect-mcp",
+      "cwd": "C:\\path\\to\\coverity-connect-mcp",
       "env": {
         "COVERITY_HOST": "your-coverity-server.com",
         "COVERITY_PORT": "8080",
@@ -109,6 +109,11 @@ Add the following to your Claude Desktop configuration:
   }
 }
 ```
+
+On macOS or Linux, use the virtual environment interpreter at
+`/path/to/coverity-connect-mcp/venv/bin/python` instead. Do not use a bare
+`python` command: Copilot may resolve it to a different interpreter from the
+one where this package was installed.
 
 ## 🧪 Installation Verification
 
@@ -172,9 +177,6 @@ xcode-select --install
 # Test connectivity
 telnet your-coverity-server 8080
 
-# Check proxy settings if needed
-export HTTP_PROXY=http://proxy:8080
-export HTTPS_PROXY=http://proxy:8080
 ```
 
 ### Getting Help

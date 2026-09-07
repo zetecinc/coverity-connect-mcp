@@ -8,7 +8,7 @@
 
 Coverity Connect MCP ServerはModel Context Protocol (MCP) 仕様を実装し、以下の機能を提供します：
 
-- **ツール**: Coverity操作用の5つの利用可能ツール
+- **ツール**: Coverity操作用の9つの利用可能ツール
 - **リソース**: 設定とデータアクセス用の2つの利用可能リソース  
 - **プロンプト**: 一般的なワークフロー用の組み込みプロンプト
 
@@ -26,6 +26,7 @@ async def search_defects(
     checker: str = "",
     severity: str = "",
     status: str = "",
+    file_path: str = "",
     limit: int = 50
 ) -> List[Dict[str, Any]]
 ```
@@ -39,6 +40,7 @@ async def search_defects(
 | `checker` | 文字列 | いいえ | `""` | チェッカー名でフィルタ（例："NULL_RETURNS"） |
 | `severity` | 文字列 | いいえ | `""` | 重要度でフィルタ（High、Medium、Low） |
 | `status` | 文字列 | いいえ | `""` | ステータスでフィルタ（New、Triaged、Fixed等） |
+| `file_path` | 文字列 | いいえ | `""` | 完全なファイルパスまたはパスの一部でフィルタ |
 | `limit` | 整数 | いいえ | `50` | 返される結果の最大数 |
 
 #### 使用例
@@ -51,6 +53,11 @@ async def search_defects(
 **フィルタ検索:**
 ```
 まだNewステータスの高重要度NULL_RETURNS欠陥をすべて見つけてください
+```
+
+**パスフィルタ検索:**
+```
+src/authentication ディレクトリ内の欠陥を見つけてください
 ```
 
 **高度な検索:**
@@ -85,7 +92,33 @@ async def get_defect_details(cid: str) -> Dict[str, Any]
 CID 98765の根本原因を分析し、修正手順を提案してください
 ```
 
-### 3. list_projects
+### 3. mark_defect_intentional
+
+Coverityの欠陥の`Classification`トリアージ属性を`Intentional`に設定します。
+同じCIDが複数のストリームに存在する場合でも対象を限定するため、ストリーム名が必要です。
+
+#### シグネチャ
+```python
+async def mark_defect_intentional(
+    cid: int, stream_name: str
+) -> Dict[str, Any]
+```
+
+#### パラメータ
+
+| パラメータ | タイプ | 必須 | 説明 |
+|-----------|------|------|-----|
+| `cid` | 整数 | はい | 分類するCoverity Issue Identifier（CID） |
+| `stream_name` | 文字列 | はい | 対象の欠陥を含むストリーム名 |
+
+#### 使用例
+```
+メインストリームのCID 12345をIntentionalとしてマークしてください
+```
+
+認証されたCoverityユーザーには欠陥トリアージを更新する権限が必要です。
+
+### 4. list_projects
 
 Coverity Connectで利用可能なすべてのプロジェクトをリストします。
 
@@ -101,7 +134,7 @@ Coverity Connectで利用可能なすべてのプロジェクトをリストし�
 ストリーム数を含むすべてのプロジェクトの概要を教えてください
 ```
 
-### 4. list_streams
+### 5. list_streams
 
 ストリームをリストし、オプションでプロジェクトによりフィルタします。
 
@@ -117,7 +150,7 @@ Coverityのすべてのストリームをリストしてください
 WebApplicationプロジェクトのすべてのストリームを表示してください
 ```
 
-### 5. get_project_summary
+### 6. get_project_summary
 
 欠陥統計を含むプロジェクトの包括的なサマリー情報を取得します。
 

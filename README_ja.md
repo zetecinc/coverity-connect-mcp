@@ -33,7 +33,7 @@ AIアシスタント（Claude Desktopなど）と**Black Duck Coverity Connect**
 ### 🛠️ **エンタープライズ対応**
 - **SOAP API統合**: Coverity Connect Webサービスの完全サポート
 - **認証**: 安全な認証キーベース認証
-- **プロキシサポート**: 企業ネットワークとプロキシ設定
+- **直接接続**: Coverityへのリクエストでプロキシを使用しない
 - **マルチプラットフォーム**: Windows、macOS、Linux対応
 - **Docker対応**: エンタープライズ環境向けコンテナ化デプロイメント
 
@@ -118,11 +118,6 @@ export COVERITY_SSL="True"
 # オプション - ローカルワークスペース
 export COVERITY_BASE_DIR="/path/to/coverity/workspace"
 
-# オプション - 企業プロキシ（必要な場合）
-export PROXY_HOST="proxy-server.com"
-export PROXY_PORT="3128"
-export PROXY_USER="プロキシユーザー名"  # 認証が必要な場合
-export PROXY_PASS="プロキシパスワード"  # 認証が必要な場合
 ```
 
 ### 2. Claude Desktop統合
@@ -158,9 +153,6 @@ services:
       - COVAUTHUSER=${COVAUTHUSER}
       - COVAUTHKEY=${COVAUTHKEY}
       - COVERITY_HOST=${COVERITY_HOST}
-      # オプション：プロキシ設定
-      - PROXY_HOST=${PROXY_HOST}
-      - PROXY_PORT=${PROXY_PORT}
     ports:
       - "8000:8000"
 ```
@@ -208,6 +200,7 @@ services:
 |------|-------------|---------------|
 | `search_defects` | フィルタリング機能付き高度欠陥検索 | 高重要度セキュリティ脆弱性の発見 |
 | `get_defect_details` | 特定欠陥の詳細情報取得 | 欠陥イベントと修正手順の分析 |
+| `mark_defect_intentional` | 指定ストリームの欠陥をIntentionalに分類 | メインストリームのCID 12345をIntentionalとしてマーク |
 | `list_projects` | アクセス可能なCoverityプロジェクト一覧を取得 | プロジェクト棚卸しとアクセス確認 |
 | `list_streams` | 特定プロジェクトのストリームを取得 | ストリームベース解析計画 |
 | `get_project_summary` | 包括的プロジェクト解析取得 | エグゼクティブプロジェクトヘルスレポート |

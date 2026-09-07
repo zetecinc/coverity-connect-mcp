@@ -261,8 +261,6 @@ export SSL_VERIFY=False
 # ネットワーク接続テスト
 telnet $COVERITY_HOST $COVERITY_PORT
 
-# プロキシ経由テスト
-curl --proxy $HTTP_PROXY "https://$COVERITY_HOST:$COVERITY_PORT"
 ```
 
 ## 📋 設定チェックリスト
