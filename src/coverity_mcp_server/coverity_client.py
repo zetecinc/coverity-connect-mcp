@@ -494,8 +494,8 @@ class CoverityClient:
         client.set_options(wsse=security)
         return client
 
-    def _mark_defect_intentional_sync(
-        self, cid: int, stream_name: str
+    def _mark_defect_classification_sync(
+        self, cid: int, stream_name: str, classification_name: str
     ) -> Dict[str, Any]:
         """Set the Classification attribute for one CID in one stream."""
         client = self._create_defect_service_client()
@@ -537,7 +537,7 @@ class CoverityClient:
         classification.attributeValueId = client.factory.create(
             "attributeValueIdDataObj"
         )
-        classification.attributeValueId.name = "Intentional"
+        classification.attributeValueId.name = classification_name
 
         defect_state = client.factory.create("defectStateSpecDataObj")
         defect_state.defectStateAttributeValues = [classification]
@@ -546,15 +546,31 @@ class CoverityClient:
         return {
             "cid": cid,
             "stream_name": stream_name,
-            "classification": "Intentional",
+            "classification": classification_name,
             "updated": True,
         }
 
-    async def mark_defect_intentional(
+    def _mark_defect_intentional_sync(
         self, cid: int, stream_name: str
     ) -> Dict[str, Any]:
+        """Set one CID's Classification attribute to Intentional."""
+        return self._mark_defect_classification_sync(
+            cid, stream_name, "Intentional"
+        )
+
+    def _mark_defect_false_positive_sync(
+        self, cid: int, stream_name: str
+    ) -> Dict[str, Any]:
+        """Set one CID's Classification attribute to False Positive."""
+        return self._mark_defect_classification_sync(
+            cid, stream_name, "False Positive"
+        )
+
+    async def _mark_defect_classification(
+        self, cid: int, stream_name: str, classification_name: str
+    ) -> Dict[str, Any]:
         """
-        Mark a CID as Intentional in an explicitly selected stream.
+        Mark a CID with a classification in an explicitly selected stream.
 
         Coverity's DefectService is synchronous, so it is run in the default
         executor to avoid blocking other MCP requests.
@@ -566,7 +582,27 @@ class CoverityClient:
 
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
-            None, self._mark_defect_intentional_sync, cid, stream_name.strip()
+            None,
+            self._mark_defect_classification_sync,
+            cid,
+            stream_name.strip(),
+            classification_name,
+        )
+
+    async def mark_defect_intentional(
+        self, cid: int, stream_name: str
+    ) -> Dict[str, Any]:
+        """Mark a CID as Intentional in an explicitly selected stream."""
+        return await self._mark_defect_classification(
+            cid, stream_name, "Intentional"
+        )
+
+    async def mark_defect_false_positive(
+        self, cid: int, stream_name: str
+    ) -> Dict[str, Any]:
+        """Mark a CID as False Positive in an explicitly selected stream."""
+        return await self._mark_defect_classification(
+            cid, stream_name, "False Positive"
         )
     
     async def get_users(self, disabled: bool = False, include_details: bool = True, 

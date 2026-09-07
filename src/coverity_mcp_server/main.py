@@ -339,6 +339,36 @@ def create_server() -> FastMCP:
                 error,
             )
             return {"error": str(error)}
+
+    @mcp.tool()
+    async def mark_defect_false_positive(
+        cid: int, stream_name: str
+    ) -> Dict[str, Any]:
+        """
+        Mark one Coverity issue as False Positive in a specific stream.
+
+        Args:
+            cid: Coverity Issue Identifier to classify.
+            stream_name: Stream containing the issue. This limits the update
+                to the requested stream when the CID exists in several streams.
+        """
+        try:
+            client = initialize_client()
+            result = await client.mark_defect_false_positive(cid, stream_name)
+            logger.info(
+                "Marked CID %s as False Positive in stream %s",
+                cid,
+                stream_name,
+            )
+            return result
+        except Exception as error:
+            logger.error(
+                "Failed to mark CID %s as False Positive in stream %s: %s",
+                cid,
+                stream_name,
+                error,
+            )
+            return {"error": str(error)}
     
     @mcp.tool()
     async def list_projects() -> List[Dict[str, Any]]:

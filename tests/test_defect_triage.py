@@ -83,3 +83,31 @@ class MarkDefectIntentionalTests(unittest.TestCase):
             import asyncio
 
             asyncio.run(client.mark_defect_intentional(0, "main"))
+
+    def test_marks_false_positive_in_the_requested_stream(self):
+        client = CoverityClient(
+            "coverity.example.test",
+            username="user",
+            password="key",
+        )
+        soap_client = FakeSoapClient()
+        client._create_defect_service_client = lambda: soap_client
+
+        result = client._mark_defect_false_positive_sync(12345, "main")
+
+        defect_ids, defect_state = soap_client.service.update_arguments
+        self.assertEqual(len(defect_ids), 1)
+        classification = defect_state.defectStateAttributeValues[0]
+        self.assertEqual(
+            classification.attributeValueId.name,
+            "False Positive",
+        )
+        self.assertEqual(
+            result,
+            {
+                "cid": 12345,
+                "stream_name": "main",
+                "classification": "False Positive",
+                "updated": True,
+            },
+        )
