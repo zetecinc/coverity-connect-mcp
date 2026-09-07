@@ -49,13 +49,10 @@ async def test_connection():
     coverity_host = os.getenv('COVERITY_HOST', '')
     username = os.getenv('COVAUTHUSER', '')
     password = os.getenv('COVAUTHKEY', '')
-    proxy_host = os.getenv('PROXY_HOST', 'bypsproxy.daikin.co.jp')
-    proxy_port = os.getenv('PROXY_PORT', '3128')
     
     print(f"COVERITY_HOST: {coverity_host}")
     print(f"COVAUTHUSER: {username}")
     print(f"COVAUTHKEY: {'*' * 8 if password else 'NOT SET'}")
-    print(f"Proxy: {proxy_host}:{proxy_port}")
     
     if not all([coverity_host, username, password]):
         print("\n❌ エラー: 必要な環境変数が設定されていません")
@@ -65,21 +62,8 @@ async def test_connection():
         print("set COVAUTHKEY=your_auth_key")
         return False
     
-    # 2. プロキシ設定
-    print("\n[2] プロキシ設定:")
-    print("-" * 40)
-    
-    proxy_url = f"http://{proxy_host}:{proxy_port}"
-    os.environ['HTTP_PROXY'] = proxy_url
-    os.environ['HTTPS_PROXY'] = proxy_url
-    os.environ['http_proxy'] = proxy_url
-    os.environ['https_proxy'] = proxy_url
-    
-    print(f"HTTP_PROXY: {proxy_url}")
-    print(f"HTTPS_PROXY: {proxy_url}")
-    
-    # 3. URL解析
-    print("\n[3] URL解析:")
+    # 2. URL解析
+    print("\n[2] URL解析:")
     print("-" * 40)
     
     try:
@@ -99,8 +83,8 @@ async def test_connection():
         print(f"❌ URL解析エラー: {e}")
         return False
     
-    # 4. クライアント作成と接続テスト
-    print("\n[4] Coverityクライアント接続テスト:")
+    # 3. クライアント作成と接続テスト
+    print("\n[3] Coverityクライアント接続テスト:")
     print("-" * 40)
     
     client = None
@@ -140,7 +124,7 @@ async def test_connection():
         print("✓ クライアント作成成功")
         
         # プロジェクト一覧を取得してテスト
-        print("\n[5] API接続テスト (プロジェクト一覧取得):")
+        print("\n[4] API接続テスト (プロジェクト一覧取得):")
         print("-" * 40)
         
         projects = await client.get_projects()
@@ -165,7 +149,7 @@ async def test_connection():
                 print("  実際のCoverityサーバーに接続できていない可能性があります")
             
             # ユーザー情報も取得してテスト
-            print("\n[6] ユーザー情報取得テスト:")
+            print("\n[5] ユーザー情報取得テスト:")
             print("-" * 40)
             
             users = await client.get_users(limit=5)
@@ -193,9 +177,8 @@ async def test_connection():
         
         print("\n確認事項:")
         print("1. Coverityサーバーへのネットワーク接続")
-        print("2. プロキシ設定（社内ネットワークの場合）")
-        print("3. 認証情報の正確性")
-        print("4. Coverityサーバーのアドレスとポート")
+        print("2. 認証情報の正確性")
+        print("3. Coverityサーバーのアドレスとポート")
         
         # エラーの詳細を表示
         import traceback

@@ -97,27 +97,13 @@ class CoverityClient:
             # Create session with timeout
             timeout = aiohttp.ClientTimeout(total=30)
             
-            # Configure proxy if available
-            proxy = None
-            proxy_auth = None
-            
-            # Check for proxy settings from environment
-            http_proxy = os.getenv('HTTP_PROXY') or os.getenv('http_proxy')
-            https_proxy = os.getenv('HTTPS_PROXY') or os.getenv('https_proxy')
-            
-            if self.use_ssl and https_proxy:
-                proxy = https_proxy
-                logger.info(f"Using HTTPS proxy: {proxy}")
-            elif not self.use_ssl and http_proxy:
-                proxy = http_proxy
-                logger.info(f"Using HTTP proxy: {proxy}")
-            
             connector = aiohttp.TCPConnector(ssl=ssl_context) if ssl_context else None
             
             self._session = aiohttp.ClientSession(
                 auth=auth,
                 timeout=timeout,
                 connector=connector,
+                trust_env=False,
                 headers={
                     'Accept': 'application/json',
                     'Content-Type': 'application/json'
@@ -157,17 +143,6 @@ class CoverityClient:
                 kwargs['params'] = params
             if data:
                 kwargs['json'] = data
-            
-            # Configure proxy for this request
-            http_proxy = os.getenv('HTTP_PROXY') or os.getenv('http_proxy')
-            https_proxy = os.getenv('HTTPS_PROXY') or os.getenv('https_proxy')
-            
-            if self.use_ssl and https_proxy:
-                kwargs['proxy'] = https_proxy
-                logger.debug(f"Using HTTPS proxy: {https_proxy}")
-            elif not self.use_ssl and http_proxy:
-                kwargs['proxy'] = http_proxy
-                logger.debug(f"Using HTTP proxy: {http_proxy}")
             
             async with session.request(method, url, **kwargs) as response:
                 logger.debug(f"Response status: {response.status}")
@@ -320,9 +295,9 @@ class CoverityClient:
                 }
             ]
     
-    async def get_defects(self, stream_id: str = "", query: str = "", 
-                         filters: Dict[str, str] = None, 
-                         limit: int = 100) -> List[Dict[str, Any]]:
+    async def get_defects(self, stream_id: str = "", query: str = "",
+                         filters: Dict[str, str] = None,
+                         file_path: str = "", limit: int = 100) -> List[Dict[str, Any]]:
         """
         Get defects from Coverity Connect
         
@@ -330,6 +305,7 @@ class CoverityClient:
             stream_id: Stream identifier to filter by
             query: Search query
             filters: Additional filters (checker, severity, status, etc.)
+            file_path: File path or path fragment to match
             limit: Maximum number of results
             
         Returns:
@@ -347,8 +323,29 @@ class CoverityClient:
             # Add filters
             if filters:
                 params.update(filters)
-            
-            response = await self._make_request('GET', endpoint, params=params)
+
+            method = 'GET'
+            data = None
+            if file_path:
+                method = 'POST'
+                data = {
+                    'filters': [
+                        {
+                            'columnKey': 'file',
+                            'matchMode': 'subString',
+                            'matchers': [
+                                {
+                                    'class': 'String',
+                                    'pattern': file_path,
+                                }
+                            ],
+                        }
+                    ]
+                }
+
+            response = await self._make_request(
+                method, endpoint, params=params, data=data
+            )
             
             # Handle different response formats
             if isinstance(response, dict):
@@ -445,6 +442,97 @@ class CoverityClient:
         except Exception as e:
             logger.error(f"Failed to get defect details for {cid}: {e}")
             return None
+
+    def _create_defect_service_client(self) -> Any:
+        """Create an authenticated Coverity DefectService SOAP client."""
+        try:
+            from suds.client import Client
+            from suds.wsse import Security, UsernameToken
+        except ImportError as error:
+            raise RuntimeError(
+                "suds-community is required to update Coverity defect triage."
+            ) from error
+
+        client = Client(f"{self.base_url}/ws/v9/defectservice?wsdl")
+        security = Security()
+        security.tokens.append(UsernameToken(self.username, self.password))
+        client.set_options(wsse=security)
+        return client
+
+    def _mark_defect_intentional_sync(
+        self, cid: int, stream_name: str
+    ) -> Dict[str, Any]:
+        """Set the Classification attribute for one CID in one stream."""
+        client = self._create_defect_service_client()
+
+        merged_defect_id = client.factory.create("mergedDefectIdDataObj")
+        merged_defect_id.cid = cid
+
+        stream_id = client.factory.create("streamIdDataObj")
+        stream_id.name = stream_name
+
+        filter_spec = client.factory.create("streamDefectFilterSpecDataObj")
+        filter_spec.includeDefectInstances = False
+        filter_spec.includeHistory = False
+        filter_spec.streamIdList = [stream_id]
+
+        stream_defects = client.service.getStreamDefects(
+            [merged_defect_id], filter_spec
+        )
+        matching_defect = next(
+            (
+                defect
+                for defect in stream_defects or []
+                if getattr(defect, "cid", None) == cid
+            ),
+            None,
+        )
+        if matching_defect is None:
+            raise LookupError(
+                f"CID {cid} was not found in stream '{stream_name}'."
+            )
+
+        classification = client.factory.create(
+            "defectStateAttributeValueDataObj"
+        )
+        classification.attributeDefinitionId = client.factory.create(
+            "attributeDefinitionIdDataObj"
+        )
+        classification.attributeDefinitionId.name = "Classification"
+        classification.attributeValueId = client.factory.create(
+            "attributeValueIdDataObj"
+        )
+        classification.attributeValueId.name = "Intentional"
+
+        defect_state = client.factory.create("defectStateSpecDataObj")
+        defect_state.defectStateAttributeValues = [classification]
+        client.service.updateStreamDefects([matching_defect.id], defect_state)
+
+        return {
+            "cid": cid,
+            "stream_name": stream_name,
+            "classification": "Intentional",
+            "updated": True,
+        }
+
+    async def mark_defect_intentional(
+        self, cid: int, stream_name: str
+    ) -> Dict[str, Any]:
+        """
+        Mark a CID as Intentional in an explicitly selected stream.
+
+        Coverity's DefectService is synchronous, so it is run in the default
+        executor to avoid blocking other MCP requests.
+        """
+        if cid <= 0:
+            raise ValueError("cid must be a positive integer")
+        if not stream_name.strip():
+            raise ValueError("stream_name must not be empty")
+
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(
+            None, self._mark_defect_intentional_sync, cid, stream_name.strip()
+        )
     
     async def get_users(self, disabled: bool = False, include_details: bool = True, 
                        locked: bool = False, limit: int = 200) -> List[Dict[str, Any]]:

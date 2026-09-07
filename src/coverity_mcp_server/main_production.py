@@ -51,21 +51,13 @@ def initialize_client() -> CoverityClient:
     coverity_url = os.getenv('COVERITY_HOST')
     username = os.getenv('COVAUTHUSER')
     password = os.getenv('COVAUTHKEY')
+    configured_port = os.getenv('COVERITY_PORT', '').strip()
+    configured_ssl = os.getenv('COVERITY_SSL', '').strip().lower()
     
     logger.info("=== Configuration Loading ===")
     logger.info(f"COVERITY_HOST: {coverity_url}")
     logger.info(f"COVAUTHUSER: {username}")
     logger.info(f"COVAUTHKEY: {'***' if password else 'None'}")
-    
-    # Set proxy environment variables if not already set
-    if not os.getenv('HTTPS_PROXY') and not os.getenv('https_proxy'):
-        proxy_host = os.getenv('PROXY_HOST')
-        proxy_port = os.getenv('PROXY_PORT', '')
-        if proxy_host:
-            proxy_url = f'http://{proxy_host}:{proxy_port}'
-            os.environ['HTTPS_PROXY'] = proxy_url
-        os.environ['HTTP_PROXY'] = proxy_url
-        logger.info(f"Set proxy: {proxy_url}")
     
     # Handle missing configuration gracefully
     if not coverity_url:
@@ -82,6 +74,9 @@ def initialize_client() -> CoverityClient:
     
     # Parse URL to extract host, port, and SSL setting
     try:
+        if not coverity_url.startswith(('http://', 'https://')):
+            coverity_url = f"https://{coverity_url}"
+
         parsed_url = urlparse(coverity_url)
         
         # Extract host (remove trailing slash if present)
@@ -95,13 +90,19 @@ def initialize_client() -> CoverityClient:
         # Extract port
         if parsed_url.port:
             port = parsed_url.port
+        elif configured_port:
+            port = int(configured_port)
         elif parsed_url.scheme == 'https':
             port = 443
         else:
             port = 8080
         
-        # Determine SSL setting
-        use_ssl = parsed_url.scheme == 'https'
+        # Use the configured SSL setting when it is supplied.
+        use_ssl = (
+            configured_ssl == 'true'
+            if configured_ssl in ('true', 'false')
+            else parsed_url.scheme == 'https'
+        )
         
         logger.info(f"Parsed URL - Host: {host}, Port: {port}, SSL: {use_ssl}")
         
@@ -476,8 +477,6 @@ def main(host: str, port: int, log_level: str):
         logger.error("  COVAUTHUSER - Coverity Connect username")
         logger.error("  COVAUTHKEY - Coverity Connect password/token")
         logger.error("Optional environment variables:")
-        logger.error("  PROXY_HOST - Proxy hostname (if proxy is required)")
-        logger.error("  PROXY_PORT - Proxy port (if proxy is required)")
         sys.exit(1)
     
     try:

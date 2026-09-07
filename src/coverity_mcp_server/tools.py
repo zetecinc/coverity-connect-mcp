@@ -38,11 +38,11 @@ async def get_coverity_projects() -> str:
         wsdl_url = config.server_url + "/ws/v9/configurationservice?wsdl"
         
         # Create SOAP client with authentication
-        client = Client(wsdl_url, proxy=config.proxies)
+        client = Client(wsdl_url)
         security = Security()
         auth_key = UsernameToken(config.username, config.auth_key)
         security.tokens.append(auth_key)
-        client.set_options(wsse=security, proxy=config.proxies)
+        client.set_options(wsse=security)
         
         # Retrieve project list
         projectIdDO = client.factory.create("projectFilterSpecDataObj")
@@ -83,11 +83,11 @@ async def get_project_streams(project_name: str) -> str:
         
         wsdl_url = config.server_url + "/ws/v9/configurationservice?wsdl"
         
-        client = Client(wsdl_url, proxy=config.proxies)
+        client = Client(wsdl_url)
         security = Security()
         auth_key = UsernameToken(config.username, config.auth_key)
         security.tokens.append(auth_key)
-        client.set_options(wsse=security, proxy=config.proxies)
+        client.set_options(wsse=security)
         
         # Search for project
         projectIdDO = client.factory.create("projectFilterSpecDataObj")
@@ -141,11 +141,11 @@ async def get_stream_snapshots(stream_name: str, limit: int = 10) -> str:
         
         wsdl_url = config.server_url + "/ws/v9/configurationservice?wsdl"
         
-        client = Client(wsdl_url, proxy=config.proxies)
+        client = Client(wsdl_url)
         security = Security()
         auth_key = UsernameToken(config.username, config.auth_key)
         security.tokens.append(auth_key)
-        client.set_options(wsse=security, proxy=config.proxies)
+        client.set_options(wsse=security)
         
         # Get snapshots for stream
         streamIdDO = client.factory.create("streamIdDataObj")
@@ -195,11 +195,11 @@ async def analyze_snapshot_defects(
         
         defect_wsdl = config.server_url + "/ws/v9/defectservice?wsdl"
         
-        client = Client(defect_wsdl, proxy=config.proxies)
+        client = Client(defect_wsdl)
         security = Security()
         auth_key = UsernameToken(config.username, config.auth_key)
         security.tokens.append(auth_key)
-        client.set_options(wsse=security, proxy=config.proxies)
+        client.set_options(wsse=security)
         
         # Create project reference
         projectIdDO = client.factory.create("projectIdDataObj")

@@ -63,26 +63,14 @@ def initialize_client() -> CoverityClient:
     coverity_url = os.getenv('COVERITY_HOST', '').strip()
     username = os.getenv('COVAUTHUSER', '').strip()
     password = os.getenv('COVAUTHKEY', '').strip()
-    
-    # プロキシ設定を取得（.envファイルから）
-    proxy_host = os.getenv('PROXY_HOST', 'bypsproxy.daikin.co.jp').strip()
-    proxy_port = os.getenv('PROXY_PORT', '3128').strip()
-    
-    # プロキシを環境変数に設定（aiohttpが使用）
-    if proxy_host and proxy_port:
-        proxy_url = f"http://{proxy_host}:{proxy_port}"
-        os.environ['HTTP_PROXY'] = proxy_url
-        os.environ['HTTPS_PROXY'] = proxy_url
-        os.environ['http_proxy'] = proxy_url
-        os.environ['https_proxy'] = proxy_url
-        logger.info(f"Proxy configured: {proxy_url}")
+    configured_port = os.getenv('COVERITY_PORT', '').strip()
+    configured_ssl = os.getenv('COVERITY_SSL', '').strip().lower()
     
     # デバッグ情報の出力（パスワードは隠す）
     logger.info("=== Coverity Client Initialization ===")
     logger.info(f"COVERITY_HOST: {coverity_url}")
     logger.info(f"COVAUTHUSER: {username}")
     logger.info(f"COVAUTHKEY: {'*' * 8 if password else 'NOT SET'}")
-    logger.info(f"Proxy: {proxy_host}:{proxy_port}")
     logger.info(f"Working Directory: {os.getcwd()}")
     
     # 必須パラメータのチェック
@@ -128,16 +116,22 @@ def initialize_client() -> CoverityClient:
         if not host:
             raise ValueError(f"Cannot extract hostname from URL: {coverity_url}")
         
-        # ポート番号の抽出（テスト成功時と同じ設定）
+        # Use an explicit URL port first, then the configured port.
         if parsed_url.port:
             port = parsed_url.port
+        elif configured_port:
+            port = int(configured_port)
         elif parsed_url.scheme == 'https':
             port = 443  # HTTPS標準ポート
         else:
             port = 8080  # Coverity Connect標準ポート
         
-        # SSL設定の判定
-        use_ssl = parsed_url.scheme == 'https'
+        # Use the configured SSL setting when it is supplied.
+        use_ssl = (
+            configured_ssl == 'true'
+            if configured_ssl in ('true', 'false')
+            else parsed_url.scheme == 'https'
+        )
         
         logger.info(f"Parsed configuration:")
         logger.info(f"  Host: {host}")
@@ -164,7 +158,7 @@ def initialize_client() -> CoverityClient:
         logger.info(f"  Server: {host}:{port}")
         logger.info(f"  User: {username}")
         logger.info(f"  SSL: {use_ssl}")
-        logger.info(f"  Proxy: {proxy_url if proxy_host else 'None'}")
+        logger.info("  Connection: direct")
         
         return coverity_client
         
@@ -172,9 +166,8 @@ def initialize_client() -> CoverityClient:
         logger.error(f"Failed to create Coverity client: {e}")
         logger.error("Please check:")
         logger.error("  1. Network connectivity to Coverity server")
-        logger.error("  2. Proxy settings (if behind corporate firewall)")
-        logger.error("  3. Authentication credentials")
-        logger.error("  4. Server URL and port")
+        logger.error("  2. Authentication credentials")
+        logger.error("  3. Server URL and port")
         raise
 
 def create_server() -> FastMCP:
@@ -251,6 +244,7 @@ def create_server() -> FastMCP:
         checker: str = "",
         severity: str = "",
         status: str = "",
+        file_path: str = "",
         limit: int = 50
     ) -> List[Dict[str, Any]]:
         """
@@ -262,6 +256,7 @@ def create_server() -> FastMCP:
             checker: Filter by checker name
             severity: Filter by severity (High, Medium, Low)
             status: Filter by status (New, Triaged, Fixed, etc.)
+            file_path: Filter by a file path or path fragment
             limit: Maximum number of results to return
         """
         try:
@@ -281,6 +276,7 @@ def create_server() -> FastMCP:
             defects = await client.get_defects(
                 query=query,
                 filters=filters,
+                file_path=file_path,
                 limit=limit
             )
             
@@ -310,6 +306,34 @@ def create_server() -> FastMCP:
         except Exception as e:
             logger.error(f"Error getting defect details: {e}")
             return {"error": str(e)}
+
+    @mcp.tool()
+    async def mark_defect_intentional(
+        cid: int, stream_name: str
+    ) -> Dict[str, Any]:
+        """
+        Mark one Coverity issue as Intentional in a specific stream.
+
+        Args:
+            cid: Coverity Issue Identifier to classify.
+            stream_name: Stream containing the issue. This limits the update
+                to the requested stream when the CID exists in several streams.
+        """
+        try:
+            client = initialize_client()
+            result = await client.mark_defect_intentional(cid, stream_name)
+            logger.info(
+                "Marked CID %s as Intentional in stream %s", cid, stream_name
+            )
+            return result
+        except Exception as error:
+            logger.error(
+                "Failed to mark CID %s as Intentional in stream %s: %s",
+                cid,
+                stream_name,
+                error,
+            )
+            return {"error": str(error)}
     
     @mcp.tool()
     async def list_projects() -> List[Dict[str, Any]]:
@@ -517,18 +541,37 @@ def run_server():
         sys.exit(1)
 
 @click.command()
-@click.option('--host', default='localhost', help='Coverity Connect host')
-@click.option('--port', default=8080, help='Coverity Connect port')
-@click.option('--ssl/--no-ssl', default=True, help='Use SSL connection')
+@click.option(
+    '--host',
+    default=None,
+    help='Coverity Connect host (overrides COVERITY_HOST)',
+)
+@click.option(
+    '--port',
+    type=int,
+    default=None,
+    help='Coverity Connect port (overrides COVERITY_PORT)',
+)
+@click.option(
+    '--ssl/--no-ssl',
+    default=None,
+    help='Use SSL (overrides COVERITY_SSL)',
+)
 @click.option('--username', help='Coverity username (or set COVAUTHUSER env var)')
 @click.option('--password', help='Coverity password (or set COVAUTHKEY env var)')
-def cli(host, port, ssl, username, password):
+def cli(
+    host: Optional[str],
+    port: Optional[int],
+    ssl: Optional[bool],
+    username: Optional[str],
+    password: Optional[str],
+):
     """Start the Coverity Connect MCP Server"""
     
-    # Set environment variables if provided via CLI
-    if host:
+    # Only explicit command-line values override the loaded environment.
+    if host is not None:
         os.environ['COVERITY_HOST'] = host
-    if port:
+    if port is not None:
         os.environ['COVERITY_PORT'] = str(port)
     if ssl is not None:
         os.environ['COVERITY_SSL'] = str(ssl)

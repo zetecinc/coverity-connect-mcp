@@ -2,7 +2,7 @@
 """
 Coverity Connect API Client - Production Version
 Provides async interface for interacting with Coverity Connect (Black Duck) REST API
-This version uses environment variables for proxy configuration without hardcoded values.
+This version uses direct connections to Coverity Connect.
 """
 
 import aiohttp
@@ -98,38 +98,13 @@ class CoverityClient:
             # Create session with timeout
             timeout = aiohttp.ClientTimeout(total=30)
             
-            # Configure proxy from environment variables
-            proxy = None
-            
-            # Check for proxy settings from environment
-            http_proxy = os.getenv('HTTP_PROXY') or os.getenv('http_proxy')
-            https_proxy = os.getenv('HTTPS_PROXY') or os.getenv('https_proxy')
-            
-            # If no standard proxy environment variables are set, check for custom ones
-            if not http_proxy and not https_proxy:
-                proxy_host = os.getenv('PROXY_HOST')
-                proxy_port = os.getenv('PROXY_PORT')
-                if proxy_host and proxy_port:
-                    proxy_url = f'http://{proxy_host}:{proxy_port}'
-                    if self.use_ssl:
-                        https_proxy = proxy_url
-                    else:
-                        http_proxy = proxy_url
-                    logger.info(f"Using custom proxy configuration: {proxy_url}")
-            
-            if self.use_ssl and https_proxy:
-                proxy = https_proxy
-                logger.info(f"Using HTTPS proxy: {proxy}")
-            elif not self.use_ssl and http_proxy:
-                proxy = http_proxy
-                logger.info(f"Using HTTP proxy: {proxy}")
-            
             connector = aiohttp.TCPConnector(ssl=ssl_context) if ssl_context else None
             
             self._session = aiohttp.ClientSession(
                 auth=auth,
                 timeout=timeout,
                 connector=connector,
+                trust_env=False,
                 headers={
                     'Accept': 'application/json',
                     'Content-Type': 'application/json'
@@ -169,28 +144,6 @@ class CoverityClient:
                 kwargs['params'] = params
             if data:
                 kwargs['json'] = data
-            
-            # Configure proxy for this request from environment variables
-            http_proxy = os.getenv('HTTP_PROXY') or os.getenv('http_proxy')
-            https_proxy = os.getenv('HTTPS_PROXY') or os.getenv('https_proxy')
-            
-            # If no standard proxy environment variables, check custom ones
-            if not http_proxy and not https_proxy:
-                proxy_host = os.getenv('PROXY_HOST')
-                proxy_port = os.getenv('PROXY_PORT')
-                if proxy_host and proxy_port:
-                    proxy_url = f'http://{proxy_host}:{proxy_port}'
-                    if self.use_ssl:
-                        https_proxy = proxy_url
-                    else:
-                        http_proxy = proxy_url
-            
-            if self.use_ssl and https_proxy:
-                kwargs['proxy'] = https_proxy
-                logger.debug(f"Using HTTPS proxy: {https_proxy}")
-            elif not self.use_ssl and http_proxy:
-                kwargs['proxy'] = http_proxy
-                logger.debug(f"Using HTTP proxy: {http_proxy}")
             
             async with session.request(method, url, **kwargs) as response:
                 logger.debug(f"Response status: {response.status}")
