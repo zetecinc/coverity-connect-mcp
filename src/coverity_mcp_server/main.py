@@ -240,6 +240,7 @@ def create_server() -> FastMCP:
     @mcp.tool()
     async def search_defects(
         query: str = "",
+        project_id: str = "",
         stream_id: str = "",
         checker: str = "",
         severity: str = "",
@@ -252,6 +253,7 @@ def create_server() -> FastMCP:
         
         Args:
             query: General search query
+            project_id: Filter by project ID
             stream_id: Filter by stream ID
             checker: Filter by checker name
             severity: Filter by severity (High, Medium, Low)
@@ -264,6 +266,8 @@ def create_server() -> FastMCP:
             
             # Build filter parameters
             filters = {}
+            if project_id:
+                filters['projectId'] = project_id
             if stream_id:
                 filters['streamId'] = stream_id
             if checker:
@@ -277,6 +281,7 @@ def create_server() -> FastMCP:
                 query=query,
                 filters=filters,
                 file_path=file_path,
+                project_id=project_id,
                 limit=limit
             )
             

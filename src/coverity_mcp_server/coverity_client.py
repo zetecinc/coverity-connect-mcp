@@ -297,7 +297,8 @@ class CoverityClient:
     
     async def get_defects(self, stream_id: str = "", query: str = "",
                          filters: Dict[str, str] = None,
-                         file_path: str = "", limit: int = 100) -> List[Dict[str, Any]]:
+                         file_path: str = "", project_id: str = "",
+                         limit: int = 100) -> List[Dict[str, Any]]:
         """
         Get defects from Coverity Connect
         
@@ -306,14 +307,23 @@ class CoverityClient:
             query: Search query
             filters: Additional filters (checker, severity, status, etc.)
             file_path: File path or path fragment to match
+            project_id: Project identifier to filter by
             limit: Maximum number of results
             
         Returns:
             List of defect dictionaries
         """
         try:
-            endpoint = '/api/v2/issues/search'
-            params = {'rowCount': limit}
+            endpoint = '/api/v3/issues/search'
+            params = {
+                'includeColumnLabels': 'false',
+                'offset': 0,
+                'queryType': 'bySnapshot',
+                'rowCount': limit,
+                'sortColumn': 'firstDetected',
+                'sortOrder': 'desc',
+                'locale': 'en_US',
+            }
 
             if query:
                 params['query'] = query
@@ -321,6 +331,16 @@ class CoverityClient:
             method = 'GET'
             data = None
             search_filters = []
+            project = project_id or (filters or {}).get('projectId', '')
+            if project:
+                search_filters.append(
+                    {
+                        'columnKey': 'project',
+                        'matchMode': 'oneOrMoreMatch',
+                        'matchers': [{'type': 'idMatcher', 'id': project}],
+                    }
+                )
+
             stream_name = stream_id or (filters or {}).get('streamId', '')
             if stream_name:
                 search_filters.append(
@@ -343,20 +363,17 @@ class CoverityClient:
                     {
                         'columnKey': 'status',
                         'matchMode': 'oneOrMoreMatch',
-                        'matchers': [{'key': status, 'type': 'keyMatcher'}],
+                        'matchers': [{'type': 'keyMatcher', 'key': status}],
                     }
                 )
 
             if file_path:
                 search_filters.append(
                     {
-                        'columnKey': 'file',
-                        'matchMode': 'subString',
+                        'columnKey': 'displayFile',
+                        'matchMode': 'oneOrMoreMatch',
                         'matchers': [
-                            {
-                                'class': 'String',
-                                'pattern': file_path,
-                            }
+                            {'type': 'keyMatcher', 'key': f'*{file_path}*'}
                         ],
                     }
                 )
@@ -365,11 +382,28 @@ class CoverityClient:
                 method = 'POST'
                 data = {
                     'filters': search_filters,
+                    'columns': [
+                        'cid',
+                        'displayType',
+                        'displayImpact',
+                        'status',
+                        'firstDetected',
+                        'classification',
+                        'severity',
+                        'action',
+                        'displayCategory',
+                        'displayFunction',
+                        'displayFile',
+                    ],
                     'snapshotScope': {
                         'show': {
                             'scope': 'last()',
                             'includeOutdatedSnapshots': False,
-                        }
+                        },
+                        'compareTo': {
+                            'scope': '',
+                            'includeOutdatedSnapshots': False,
+                        },
                     },
                 }
 
@@ -383,31 +417,15 @@ class CoverityClient:
                     return response['issues']
                 elif 'viewContentsV1' in response:
                     return response['viewContentsV1'].get('issues', [])
-                else:
-                    # Dummy data for testing
+                elif 'rows' in response:
                     return [
                         {
-                            'cid': '12345',
-                            'checkerName': 'NULL_RETURNS',
-                            'displayType': 'Null pointer dereference',
-                            'displayImpact': 'High',
-                            'displayStatus': 'New',
-                            'displayFile': 'src/main.c',
-                            'displayFunction': 'main',
-                            'firstDetected': '2024-01-15T10:00:00Z',
-                            'streamId': stream_id or 'main-stream'
-                        },
-                        {
-                            'cid': '12346', 
-                            'checkerName': 'RESOURCE_LEAK',
-                            'displayType': 'Resource leak',
-                            'displayImpact': 'Medium',
-                            'displayStatus': 'Triaged',
-                            'displayFile': 'src/utils.c',
-                            'displayFunction': 'cleanup',
-                            'firstDetected': '2024-01-16T14:30:00Z',
-                            'streamId': stream_id or 'main-stream'
+                            cell['key']: cell.get('value')
+                            for cell in row
+                            if isinstance(cell, dict) and 'key' in cell
                         }
+                        for row in response['rows']
+                        if isinstance(row, list)
                     ]
             
             return []
